@@ -10,6 +10,8 @@ const DEFAULT = {
   elektraPrijs: 0.28,
   verbruikKwh: 17,
   kmPerJaar: 20000,
+  aankoopDiesel: 25000,
+  aankoopElektrisch: 40000,
 };
 
 function fmt(n, decimals = 2) {
@@ -40,6 +42,51 @@ function SliderInput({ label, value, onChange, min, max, step, unit, color }) {
           borderRadius: "2px", outline: "none", cursor: "pointer",
         }}
       />
+    </div>
+  );
+}
+
+function PriceInput({ label, value, onChange, color }) {
+  const [raw, setRaw] = useState(value.toString());
+
+  useEffect(() => {
+    setRaw(value.toString());
+  }, [value]);
+
+  const handleChange = (e) => {
+    const str = e.target.value.replace(/[^0-9]/g, "");
+    setRaw(str);
+    const num = parseInt(str, 10);
+    if (!isNaN(num) && num >= 0) onChange(num);
+  };
+
+  const handleBlur = () => {
+    setRaw(value.toString());
+  };
+
+  return (
+    <div style={{ marginBottom: "1.2rem" }}>
+      <label style={{ fontSize: "0.78rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888", fontFamily: "'Barlow Condensed', sans-serif", display: "block", marginBottom: "0.5rem" }}>
+        {label}
+      </label>
+      <div style={{ position: "relative" }}>
+        <span style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1rem" }}>€</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={raw}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          style={{
+            width: "100%", background: "#1a1a1a",
+            border: "1px solid #2a2a2a",
+            borderBottom: `2px solid ${color}`,
+            borderRadius: "4px", padding: "0.6rem 0.75rem 0.6rem 1.6rem",
+            color: color, fontFamily: "'Barlow Condensed', sans-serif",
+            fontSize: "1.2rem", fontWeight: 600, outline: "none",
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -84,13 +131,17 @@ export default function App() {
     const kmTotaal = v.kmPerJaar * jaar;
     return {
       jaar,
-      Diesel: Math.round(kmTotaal * kostenPerKm.diesel),
-      Elektrisch: Math.round(kmTotaal * kostenPerKm.elektra),
+      Diesel: Math.round(v.aankoopDiesel + kmTotaal * kostenPerKm.diesel),
+      Elektrisch: Math.round(v.aankoopElektrisch + kmTotaal * kostenPerKm.elektra),
     };
   });
 
-  const besparing = (data[data.length - 1]?.Diesel || 0) - (data[data.length - 1]?.Elektrisch || 0);
-  const breakeven = data.findIndex(d => d.Elektrisch < d.Diesel);
+  const totaalDiesel = data[data.length - 1]?.Diesel || 0;
+  const totaalElektrisch = data[data.length - 1]?.Elektrisch || 0;
+  const verschil = totaalDiesel - totaalElektrisch;
+  const meerprijs = v.aankoopElektrisch - v.aankoopDiesel;
+  const brandstofBesparing = Math.round(v.kmPerJaar * jaren * (kostenPerKm.diesel - kostenPerKm.elektra));
+  const breakevenIdx = data.findIndex(d => d.Elektrisch < d.Diesel);
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -112,8 +163,9 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e0e0e0", fontFamily: "'Barlow', sans-serif", padding: "2rem 1.5rem" }}>
+
       {/* Header */}
-      <div style={{ maxWidth: "960px", margin: "0 auto 2.5rem" }}>
+      <div style={{ maxWidth: "1040px", margin: "0 auto 2.5rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "0.3rem" }}>
           <div style={{ width: "3px", height: "2rem", background: "linear-gradient(to bottom, #f97316, #3b82f6)" }} />
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "2rem", fontWeight: 700, letterSpacing: "0.04em", color: "#fff" }}>
@@ -121,11 +173,12 @@ export default function App() {
           </h1>
         </div>
         <p style={{ color: "#555", fontSize: "0.85rem", paddingLeft: "1.3rem", letterSpacing: "0.03em" }}>
-          Rijkostenanalyse op jaarbasis
+          Totale eigendomskost (TCO) — aankoop + rijkosten op jaarbasis
         </p>
       </div>
 
-      <div style={{ maxWidth: "960px", margin: "0 auto", display: "grid", gridTemplateColumns: "300px 1fr", gap: "1.5rem", alignItems: "start" }}>
+      <div style={{ maxWidth: "1040px", margin: "0 auto", display: "grid", gridTemplateColumns: "320px 1fr", gap: "1.5rem", alignItems: "start" }}>
+
         {/* Left column */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
 
@@ -135,10 +188,11 @@ export default function App() {
               <span style={{ fontSize: "1.1rem" }}>⛽</span>
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.8rem", letterSpacing: "0.1em", color: "#f97316", fontWeight: 600 }}>DIESEL</span>
             </div>
+            <PriceInput label="Aankoopprijs voertuig" value={v.aankoopDiesel} onChange={set("aankoopDiesel")} color="#f97316" />
             <SliderInput label="Prijs per liter" value={v.dieselPrijs} onChange={set("dieselPrijs")} min={1.2} max={2.5} step={0.01} unit="€/L" color="#f97316" />
             <SliderInput label="Verbruik" value={v.verbruikLper100} onChange={set("verbruikLper100")} min={3} max={15} step={0.1} unit="L/100km" color="#f97316" />
-            <div style={{ background: "#1a1a1a", borderRadius: "4px", padding: "0.6rem 0.8rem", marginTop: "0.5rem" }}>
-              <span style={{ fontSize: "0.72rem", color: "#666", letterSpacing: "0.06em" }}>KOST PER KM</span>
+            <div style={{ background: "#1a1a1a", borderRadius: "4px", padding: "0.6rem 0.8rem" }}>
+              <span style={{ fontSize: "0.72rem", color: "#666", letterSpacing: "0.06em" }}>RIJKOST PER KM</span>
               <div style={{ color: "#f97316", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.3rem", fontWeight: 600 }}>
                 € {fmt(kostenPerKm.diesel, 4)}
               </div>
@@ -151,10 +205,11 @@ export default function App() {
               <span style={{ fontSize: "1.1rem" }}>⚡</span>
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.8rem", letterSpacing: "0.1em", color: "#3b82f6", fontWeight: 600 }}>ELEKTRISCH</span>
             </div>
+            <PriceInput label="Aankoopprijs voertuig" value={v.aankoopElektrisch} onChange={set("aankoopElektrisch")} color="#3b82f6" />
             <SliderInput label="Prijs per kWh" value={v.elektraPrijs} onChange={set("elektraPrijs")} min={0.10} max={0.60} step={0.01} unit="€/kWh" color="#3b82f6" />
             <SliderInput label="Verbruik" value={v.verbruikKwh} onChange={set("verbruikKwh")} min={10} max={30} step={0.1} unit="kWh/100km" color="#3b82f6" />
-            <div style={{ background: "#1a1a1a", borderRadius: "4px", padding: "0.6rem 0.8rem", marginTop: "0.5rem" }}>
-              <span style={{ fontSize: "0.72rem", color: "#666", letterSpacing: "0.06em" }}>KOST PER KM</span>
+            <div style={{ background: "#1a1a1a", borderRadius: "4px", padding: "0.6rem 0.8rem" }}>
+              <span style={{ fontSize: "0.72rem", color: "#666", letterSpacing: "0.06em" }}>RIJKOST PER KM</span>
               <div style={{ color: "#3b82f6", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.3rem", fontWeight: 600 }}>
                 € {fmt(kostenPerKm.elektra, 4)}
               </div>
@@ -169,6 +224,30 @@ export default function App() {
             <SliderInput label="Km per jaar" value={v.kmPerJaar} onChange={set("kmPerJaar")} min={5000} max={80000} step={500} unit="km" color="#a855f7" />
             <SliderInput label="Periode (jaren)" value={jaren} onChange={setJaren} min={1} max={20} step={1} unit="jaar" color="#a855f7" />
           </div>
+
+          {/* Analyse */}
+          <div style={{ background: "#111", border: "1px solid #222", borderRadius: "8px", padding: "1.3rem" }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.8rem", letterSpacing: "0.1em", color: "#888", fontWeight: 600, marginBottom: "1rem" }}>
+              ANALYSE
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+              {[
+                { label: `Meerprijs elektrisch`, value: `${meerprijs >= 0 ? "+" : ""}€ ${fmt(meerprijs, 0)}`, color: meerprijs >= 0 ? "#f87171" : "#4ade80" },
+                { label: `Brandstofbesparing (${jaren}j)`, value: `+ € ${fmt(brandstofBesparing, 0)}`, color: "#4ade80" },
+              ].map(r => (
+                <div key={r.label} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
+                  <span style={{ color: "#555" }}>{r.label}</span>
+                  <span style={{ color: r.color, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600 }}>{r.value}</span>
+                </div>
+              ))}
+              <div style={{ borderTop: "1px solid #222", paddingTop: "0.65rem", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#aaa", fontSize: "0.85rem" }}>Netto resultaat</span>
+                <span style={{ color: verschil >= 0 ? "#4ade80" : "#f87171", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: "1rem" }}>
+                  {verschil >= 0 ? "Diesel −" : "Elektr. −"} € {fmt(Math.abs(verschil), 0)}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right column */}
@@ -177,35 +256,57 @@ export default function App() {
           {/* Stats */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.8rem" }}>
             {[
-              { label: "Diesel totaal", value: `€ ${fmt(data[data.length - 1]?.Diesel || 0, 0)}`, color: "#f97316" },
-              { label: "Elektrisch totaal", value: `€ ${fmt(data[data.length - 1]?.Elektrisch || 0, 0)}`, color: "#3b82f6" },
-              { label: besparing >= 0 ? "Besparing elektr." : "Meerkosten elektr.", value: `€ ${fmt(Math.abs(besparing), 0)}`, color: besparing >= 0 ? "#4ade80" : "#f87171" },
+              { label: "TCO Diesel", value: `€ ${fmt(totaalDiesel, 0)}`, sub: "aankoop + rijkosten", color: "#f97316" },
+              { label: "TCO Elektrisch", value: `€ ${fmt(totaalElektrisch, 0)}`, sub: "aankoop + rijkosten", color: "#3b82f6" },
+              { label: verschil >= 0 ? "Diesel duurder" : "Elektrisch duurder", value: `€ ${fmt(Math.abs(verschil), 0)}`, sub: `na ${jaren} jaar`, color: verschil >= 0 ? "#4ade80" : "#f87171" },
             ].map(s => (
               <div key={s.label} style={{ background: "#111", border: "1px solid #222", borderRadius: "8px", padding: "1rem", textAlign: "center" }}>
-                <div style={{ fontSize: "0.7rem", color: "#555", letterSpacing: "0.07em", marginBottom: "0.4rem", fontFamily: "'Barlow Condensed', sans-serif" }}>
+                <div style={{ fontSize: "0.68rem", color: "#555", letterSpacing: "0.07em", marginBottom: "0.4rem", fontFamily: "'Barlow Condensed', sans-serif" }}>
                   {s.label.toUpperCase()}
                 </div>
-                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.4rem", fontWeight: 700, color: s.color }}>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.35rem", fontWeight: 700, color: s.color }}>
                   {s.value}
                 </div>
-                <div style={{ fontSize: "0.68rem", color: "#444", marginTop: "0.2rem" }}>na {jaren} jaar</div>
+                <div style={{ fontSize: "0.65rem", color: "#444", marginTop: "0.25rem" }}>{s.sub}</div>
               </div>
             ))}
           </div>
 
+          {/* Breakeven banner */}
+          {breakevenIdx >= 0 ? (
+            <div style={{ background: "#0a1a0a", border: "1px solid #4ade8033", borderRadius: "8px", padding: "0.9rem 1.2rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
+              <span style={{ fontSize: "1.4rem" }}>✓</span>
+              <div>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", color: "#4ade80", fontWeight: 600, fontSize: "0.95rem", letterSpacing: "0.04em" }}>
+                  ELEKTRISCH GOEDKOPER VANAF JAAR {breakevenIdx + 1}
+                </div>
+                <div style={{ color: "#555", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                  Inclusief aankoopprijs — totale eigendomskost (TCO)
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ background: "#1a0a0a", border: "1px solid #f8717133", borderRadius: "8px", padding: "0.9rem 1.2rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
+              <span style={{ fontSize: "1.4rem" }}>✗</span>
+              <div>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", color: "#f87171", fontWeight: 600, fontSize: "0.95rem", letterSpacing: "0.04em" }}>
+                  ELEKTRISCH RECUPEREERT MEERPRIJS NIET BINNEN {jaren} JAAR
+                </div>
+                <div style={{ color: "#555", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                  Pas de parameters aan of verleng de periode
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Chart */}
           <div style={{ background: "#111", border: "1px solid #222", borderRadius: "8px", padding: "1.5rem 1rem 1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem", paddingLeft: "0.5rem" }}>
+            <div style={{ paddingLeft: "0.5rem", marginBottom: "1.2rem" }}>
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.78rem", letterSpacing: "0.1em", color: "#555" }}>
-                CUMULATIEVE RIJKOSTEN
+                TOTALE EIGENDOMSKOST (TCO) — AANKOOP + CUMULATIEVE RIJKOSTEN
               </span>
-              {breakeven >= 0 && (
-                <span style={{ background: "#4ade8015", border: "1px solid #4ade8033", color: "#4ade80", fontSize: "0.72rem", padding: "0.2rem 0.6rem", borderRadius: "99px", fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: "0.05em" }}>
-                  ✓ ELEKTRISCH GOEDKOPER VANAF JAAR {breakeven + 1}
-                </span>
-              )}
             </div>
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                 <defs>
                   <linearGradient id="colorDiesel" x1="0" y1="0" x2="0" y2="1">
@@ -243,14 +344,14 @@ export default function App() {
           <div style={{ background: "#111", border: "1px solid #222", borderRadius: "8px", overflow: "hidden" }}>
             <div style={{ padding: "0.8rem 1.2rem", borderBottom: "1px solid #1e1e1e" }}>
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.78rem", letterSpacing: "0.1em", color: "#555" }}>
-                JAARLIJKS OVERZICHT
+                JAARLIJKS OVERZICHT (TCO)
               </span>
             </div>
-            <div style={{ overflowX: "auto", maxHeight: "200px", overflowY: "auto" }}>
+            <div style={{ overflowX: "auto", maxHeight: "220px", overflowY: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.88rem" }}>
                 <thead>
                   <tr style={{ background: "#141414" }}>
-                    {["Jaar", "Km totaal", "Diesel", "Elektrisch", "Verschil"].map(h => (
+                    {["Jaar", "Km totaal", "TCO Diesel", "TCO Elektrisch", "Verschil"].map(h => (
                       <th key={h} style={{ padding: "0.55rem 1rem", textAlign: "right", color: "#555", fontSize: "0.7rem", letterSpacing: "0.07em", fontWeight: 500, whiteSpace: "nowrap" }}>
                         {h}
                       </th>
